@@ -143,7 +143,7 @@ function handleMessage(ws, userId, msg) {
       users.set(userId, user);
       
       // Broadcast join to same channel only
-      broadcastToChannel(channel, { type: 'user_joined', nickname: user.nickname, channel, color: user.color });
+      broadcastToChannel(channel, { type: 'user_joined', nickname: user.nickname, channel, color: user.color }, userId);
       
       // Update user list
       broadcastChannelUsers(channel);
@@ -168,8 +168,8 @@ function handleMessage(ws, userId, msg) {
         reply_to: msg.reply_to || null,
       };
       
-      // Send to same channel only
-      broadcastToChannel(user.channel, { type: 'message', message: chatMsg });
+      // Send to same channel, exclude sender
+      broadcastToChannel(user.channel, { type: 'message', message: chatMsg }, userId);
       break;
     }
     
