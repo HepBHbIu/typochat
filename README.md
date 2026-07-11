@@ -13,10 +13,11 @@ Anonymous public chat — no registration, no history, just enter a nickname and
 | Feature | Description |
 |---------|-------------|
 | **No Registration** | Pick a nickname, start chatting |
-| **Channels** | Topics: IT, Beer, Music, Gaming, etc. |
-| **Anonymous** | No accounts, no logs, no tracking |
-| **Decentralized** | Anyone can run a server |
-| **Real-time** | WebSocket, instant messages |
+| **Channels** | Create any channel, auto-delete after 24h inactivity |
+| **History** | Last 50 messages per channel |
+| **Federation** | Servers sync messages between each other |
+| **Anonymous** | No accounts, no tracking |
+| **Mobile** | Full responsive design |
 
 ## Quick Start
 
@@ -29,20 +30,31 @@ npm start
 
 Open http://localhost:3001
 
-## How It Works
+## Federation
 
-1. Open the page
-2. Enter any nickname
-3. Pick a channel
-4. Chat!
+```bash
+# Server A
+PORT=3001 SERVER_NAME=Moscow node server.js
+
+# Server B
+PORT=3002 PEERS=http://server-a.com:3001 SERVER_NAME=Berlin node server.js
+```
 
 ## API
 
 | Endpoint | Description |
 |----------|-------------|
 | GET `/api/channels` | List channels |
-| GET `/api/stats` | Server stats |
+| GET `/api/channels/:id/history` | Get last 50 messages |
 | POST `/api/channels` | Create channel |
+| GET `/api/stats` | Server stats |
+
+## How It Works
+
+1. Open the page
+2. Enter any nickname
+3. Pick or create a channel
+4. Chat!
 
 ## Donation
 
