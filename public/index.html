@@ -146,24 +146,28 @@ function join() {
 }
 
 function connect() {
-  console.log('Connecting WebSocket...');
   ws = new WebSocket(`ws://${location.host}`);
-  ws.onopen = () => { console.log('WS connected!'); loadChannels(); };
+  ws.onopen = () => { loadChannels(); };
   ws.onmessage = e => { onMsg(JSON.parse(e.data)); };
-  ws.onclose = () => { console.log('WS closed, reconnecting...'); setTimeout(connect, 2000); };
-  ws.onerror = e => { console.log('WS error:', e); };
+  ws.onclose = () => { setTimeout(connect, 2000); };
 }
 
 function onMsg(m) {
-  console.log('WS msg:', m.type, m);
-  if (m.type === 'message' && m.message.channel === ch) {
+  if (m.type === 'history') {
+    clearMsgs();
+    m.messages.forEach(msg => appendMsg(msg));
+    if (m.messages.length === 0) {
+      document.getElementById('msgs').innerHTML = '<div class="empty" id="empty">Начни общаться</div>';
+    }
+  } else if (m.type === 'message' && m.message.channel === ch) {
     appendMsg(m.message);
   } else if (m.type === 'user_joined') {
     appendSys(m.nickname + ' зашёл');
   } else if (m.type === 'user_left') {
     appendSys(m.nickname + ' вышел');
   } else if (m.type === 'users') {
-    document.getElementById('empty') && (document.getElementById('empty').textContent = m.users.length + ' в чате');
+    const empty = document.getElementById('empty');
+    if (empty && m.users.length > 0) empty.textContent = m.users.length + ' в чате';
   } else if (m.type === 'channel_created') {
     loadChannels();
   } else if (m.type === 'channel_deleted') {
@@ -199,8 +203,7 @@ function sendMsg() {
   const inp = document.getElementById('inp');
   const t = inp.value.trim();
   if (!t) return;
-  if (!ws || ws.readyState !== 1) { console.log('WS not connected!'); return; }
-  console.log('Sending:', t);
+  if (!ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify({ type: 'message', text: t }));
   appendMsg({ nickname: nick, text: t, color: '#e94560', timestamp: Date.now() });
   inp.value = '';
