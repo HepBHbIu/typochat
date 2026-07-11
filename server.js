@@ -18,6 +18,12 @@ const channels = new Map();
 const users = new Map();
 // Messages live in browser only
 
+// Default channels
+channels.set('general', { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат', created_at: Date.now() });
+channels.set('it', { id: 'it', name: 'IT', icon: '💻', description: 'Технологии', created_at: Date.now() });
+channels.set('beer', { id: 'beer', name: 'Пиво', icon: '🍺', description: 'Отдых', created_at: Date.now() });
+channels.set('random', { id: 'random', name: 'Рандом', icon: '🎲', description: 'Всё подряд', created_at: Date.now() });
+
 // Serve static
 app.use(express.static(path.join(__dirname, 'public')));
 
