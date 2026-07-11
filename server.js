@@ -19,10 +19,7 @@ const users = new Map();
 // Messages live in browser only
 
 // Default channels
-channels.set('general', { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат', created_at: Date.now() });
-channels.set('it', { id: 'it', name: 'IT', icon: '💻', description: 'Технологии', created_at: Date.now() });
-channels.set('beer', { id: 'beer', name: 'Пиво', icon: '🍺', description: 'Отдых', created_at: Date.now() });
-channels.set('random', { id: 'random', name: 'Рандом', icon: '🎲', description: 'Всё подряд', created_at: Date.now() });
+channels.set('general', { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат', created_at: Date.now(), last_activity: Date.now() });
 
 // Serve static
 app.use(express.static(path.join(__dirname, 'public')));
@@ -44,11 +41,28 @@ app.post('/api/channels', (req, res) => {
   if (!name) return res.status(400).json({ error: 'Name required' });
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   if (channels.has(id)) return res.status(409).json({ error: 'Channel exists' });
-  const ch = { id, name, icon: icon || '💬', description: description || '', created_at: Date.now() };
+  const ch = { id, name, icon: icon || '💬', description: description || '', created_at: Date.now(), last_activity: Date.now() };
   channels.set(id, ch);
   broadcast({ type: 'channel_created', channel: ch });
   res.json(ch);
 });
+
+// Auto-delete inactive channels (24h)
+setInterval(() => {
+  const now = Date.now();
+  const inactive = [];
+  channels.forEach((ch, id) => {
+    if (id === 'general') return; // Never delete general
+    if (now - ch.last_activity > 24 * 60 * 60 * 1000) {
+      inactive.push(id);
+    }
+  });
+  inactive.forEach(id => {
+    channels.delete(id);
+    broadcast({ type: 'channel_deleted', channelId: id });
+    console.log(`[OpenChat] Deleted inactive channel: ${id}`);
+  });
+}, 60000); // Check every minute
 
 app.get('/api/stats', (req, res) => {
   res.json({
@@ -138,6 +152,10 @@ function handleMessage(ws, userId, msg) {
     case 'message': {
       const user = users.get(userId);
       if (!user) return;
+      
+      // Update channel activity
+      const ch = channels.get(user.channel);
+      if (ch) ch.last_activity = Date.now();
       
       const chatMsg = {
         id: uuidv4(),
