@@ -118,7 +118,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const user = users.get(userId);
     if (user) {
-      broadcast({ type: 'user_left', nickname: user.nickname, channel: user.channel });
+      broadcastToChannel(user.channel, { type: 'user_left', nickname: user.nickname, channel: user.channel });
       users.delete(userId);
     }
   });
@@ -142,10 +142,8 @@ function handleMessage(ws, userId, msg) {
       
       users.set(userId, user);
       
-      // No server history — messages live in browser only
-      
-      // Broadcast join
-      broadcast({ type: 'user_joined', nickname: user.nickname, channel, color: user.color });
+      // Broadcast join to same channel only
+      broadcastToChannel(channel, { type: 'user_joined', nickname: user.nickname, channel, color: user.color });
       
       // Update user list
       broadcastChannelUsers(channel);
