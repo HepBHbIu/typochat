@@ -62,7 +62,7 @@ app.get('/api/stats', (req, res) => {
   res.json({
     users: users.size,
     channels: channels.size,
-    messages: Array.from(messages.values()).reduce((s, m) => s + m.length, 0),
+    messages: 0,
   });
 });
 
