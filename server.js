@@ -13,24 +13,10 @@ const PORT = process.env.PORT || 3001;
 const PEERS = (process.env.PEERS || '').split(',').filter(Boolean);
 const SERVER_NAME = process.env.SERVER_NAME || 'Node-' + PORT;
 
-// In-memory store — NO persistence
+// In-memory store — NO persistence, NO files
 const channels = new Map();
 const users = new Map();
-// messages stored in browser only — server just relays
-const DEFAULT_CHANNELS = [
-  { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат' },
-  { id: 'it', name: 'IT', icon: '💻', description: 'Программирование и технологии' },
-  { id: 'beer', name: 'Пиво', icon: '🍺', description: 'Отдых и развлечения' },
-  { id: 'music', name: 'Музыка', icon: '🎵', description: 'Музыка и подкасты' },
-  { id: 'gaming', name: 'Игры', icon: '🎮', description: 'Видеоигры' },
-  { id: 'random', name: 'Рандом', icon: '🎲', description: 'Всё подряд' },
-  { id: 'news', name: 'Новости', icon: '📰', description: 'Новости мира' },
-  { id: 'crypto', name: 'Крипта', icon: '₿', description: 'Криптовалюты' },
-];
-
-DEFAULT_CHANNELS.forEach(ch => {
-  channels.set(ch.id, { ...ch, created_at: Date.now() });
-});
+// Messages live in browser only
 
 // Serve static
 app.use(express.static(path.join(__dirname, 'public')));

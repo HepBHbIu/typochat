@@ -61,6 +61,12 @@
     .channel-icon { font-size: 18px; width: 28px; text-align: center; }
     .channel-name { font-size: 13px; color: rgba(255,255,255,0.7); }
     .channel.active .channel-name { color: #fff; }
+    .create-channel {
+      margin: 8px; padding: 10px; border-radius: 10px; border: 1px dashed rgba(255,255,255,0.1);
+      cursor: pointer; text-align: center; font-size: 12px; color: rgba(255,255,255,0.3);
+      transition: all 0.15s;
+    }
+    .create-channel:hover { border-color: #e94560; color: #e94560; }
     .users-panel {
       border-top: 1px solid rgba(255,255,255,0.04); padding: 12px;
       max-height: 200px; overflow-y: auto;
@@ -117,9 +123,26 @@
     
     /* Mobile */
     @media (max-width: 768px) {
-      .sidebar { display: none; }
-      .sidebar.open { display: flex; position: fixed; z-index: 100; width: 100%; height: 100vh; }
+      .sidebar { display: none; position: fixed; z-index: 100; width: 260px; height: 100vh; }
+      .sidebar.open { display: flex; }
+      .chat-header { padding: 12px 14px; }
+      .messages { padding: 12px; }
+      .input-area { padding: 10px; }
+      .input-area input { padding: 10px 12px; font-size: 16px; }
+      .input-area button { padding: 10px 16px; }
+      .menu-btn { display: block; }
     }
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .sidebar { width: 220px; }
+    }
+    .menu-btn {
+      display: none; background: none; border: none; color: #fff;
+      font-size: 20px; cursor: pointer; padding: 4px 8px;
+    }
+    .overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
+    }
+    .overlay.open { display: block; }
   </style>
 </head>
 <body>
@@ -144,6 +167,7 @@
           <h2>OpenChat</h2>
         </div>
         <div class="channels" id="channels"></div>
+        <div class="create-channel" onclick="showCreateChannel()">+ Создать канал</div>
         <div class="users-panel">
           <h4>Онлайн</h4>
           <div id="users-list"></div>
@@ -151,6 +175,7 @@
       </div>
       <div class="main-chat">
         <div class="chat-header">
+          <button class="menu-btn" onclick="toggleSidebar()">☰</button>
           <span class="chat-header-icon" id="channel-icon">💬</span>
           <div class="chat-header-info">
             <h3 id="channel-name">Общий</h3>
@@ -166,10 +191,17 @@
       </div>
     </div>
   </div>
+  
+  <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
   <script>
-    let ws, nickname, currentChannel = 'general';
+    let ws, nickname, currentChannel = null;
     const colors = {};
+    
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('open');
+    }
     
     // Load stats
     fetch('/api/stats').then(r => r.json()).then(s => {
@@ -189,9 +221,22 @@
       el.innerHTML = chs.map(ch => `
         <div class="channel ${ch.id === currentChannel ? 'active' : ''}" onclick="switchChannel('${ch.id}')">
           <span class="channel-icon">${ch.icon}</span>
-          <span class="channel-name">${ch.name}</span>
+          <span class="channel-name">${escapeHtml(ch.name)}</span>
         </div>
       `).join('');
+    }
+    
+    function showCreateChannel() {
+      const name = prompt('Название канала:');
+      if (!name) return;
+      const icon = prompt('Иконка (эмодзи):', '💬') || '💬';
+      fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, icon }),
+      }).then(r => r.json()).then(ch => {
+        if (ch.id) switchChannel(ch.id);
+      });
     }
     
     document.getElementById('join-btn').onclick = join;
@@ -211,7 +256,13 @@
       ws = new WebSocket(`ws://${location.host}`);
       
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'join', nickname, channel: currentChannel }));
+        // Load channels first
+        fetch('/api/channels').then(r => r.json()).then(chs => {
+          renderChannels(chs);
+          if (chs.length > 0 && !currentChannel) {
+            switchChannel(chs[0].id);
+          }
+        });
       };
       
       ws.onmessage = (e) => {
@@ -227,7 +278,8 @@
     function handleWSMessage(msg) {
       switch (msg.type) {
         case 'welcome':
-          renderChannels(msg.channels);
+          // Load channels from API
+          fetch('/api/channels').then(r => r.json()).then(renderChannels);
           break;
         case 'history':
           msg.messages.forEach(m => appendMessage(m));
@@ -289,7 +341,9 @@
     function switchChannel(id) {
       currentChannel = id;
       document.getElementById('messages').innerHTML = '';
-      ws.send(JSON.stringify({ type: 'join', nickname, channel: id }));
+      if (ws) ws.send(JSON.stringify({ type: 'join', nickname, channel: id }));
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('open');
       
       fetch('/api/channels').then(r => r.json()).then(chs => {
         const ch = chs.find(c => c.id === id);
