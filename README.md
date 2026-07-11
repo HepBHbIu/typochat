@@ -1,4 +1,4 @@
-# OpenChat
+# TypeChat
 
 <p align="center">
   <a href="README.md">English</a> •
@@ -22,8 +22,8 @@ Anonymous public chat — no registration, no history, just enter a nickname and
 ## Quick Start
 
 ```bash
-git clone https://github.com/HepBHbIu/openchat.git
-cd openchat
+git clone https://github.com/HepBHbIu/typechat.git
+cd typechat
 npm install
 npm start
 ```
