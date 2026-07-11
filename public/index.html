@@ -48,9 +48,13 @@
     }
     .sidebar-header {
       padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 12px; justify-content: space-between;
     }
     .sidebar-header h2 { font-size: 16px; background: linear-gradient(135deg, #e94560, #ff6b81); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sidebar-close {
+      display: none; background: none; border: none; color: #fff; font-size: 24px;
+      cursor: pointer; padding: 4px 8px;
+    }
     .channels { flex: 1; overflow-y: auto; padding: 8px; }
     .channel {
       display: flex; align-items: center; gap: 10px; padding: 10px 12px;
@@ -147,6 +151,7 @@
     @media (max-width: 768px) {
       .sidebar { display: none; position: fixed; z-index: 100; width: 100%; height: 100vh; top: 0; left: 0; }
       .sidebar.open { display: flex; }
+      .sidebar-close { display: block; }
       .chat-header { padding: 12px 14px; }
       .messages { padding: 12px; }
       .input-area { padding: 8px; padding-bottom: env(safe-area-inset-bottom, 8px); }
@@ -155,6 +160,9 @@
       .menu-btn { display: block; }
       .login-box { width: 90%; padding: 28px; }
       .msg { max-width: 90%; }
+      .channel { padding: 14px 16px; font-size: 15px; }
+      .create-channel { padding: 14px; font-size: 14px; }
+      .users-panel { padding: 16px; }
     }
     @media (min-width: 769px) and (max-width: 1024px) {
       .sidebar { width: 220px; }
@@ -170,6 +178,23 @@
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
     }
     .overlay.open { display: block; }
+    .bottom-nav {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(10,10,15,0.95); border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 8px; padding-bottom: env(safe-area-inset-bottom, 8px);
+      z-index: 50;
+    }
+    @media (max-width: 768px) {
+      .bottom-nav { display: flex; overflow-x: auto; gap: 6px; }
+      .main-chat { padding-bottom: 60px; }
+    }
+    .nav-chip {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
+      background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
+      cursor: pointer; white-space: nowrap; border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .nav-chip.active { background: rgba(233,69,96,0.2); color: #e94560; border-color: rgba(233,69,96,0.3); }
   </style>
 </head>
 <body>
@@ -192,6 +217,7 @@
       <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <h2>OpenChat</h2>
+          <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
         </div>
         <div class="channels" id="channels"></div>
         <div class="create-channel" onclick="showCreateChannel()">+ Создать канал</div>
@@ -220,6 +246,8 @@
   </div>
   
   <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+  
+  <div class="bottom-nav" id="bottom-nav"></div>
   
   <div class="modal-overlay" id="create-modal">
     <div class="modal">
@@ -264,6 +292,16 @@
           <span class="channel-name">${escapeHtml(ch.name)}</span>
         </div>
       `).join('');
+      
+      // Bottom nav for mobile
+      const nav = document.getElementById('bottom-nav');
+      if (nav) {
+        nav.innerHTML = chs.map(ch => `
+          <div class="nav-chip ${ch.id === currentChannel ? 'active' : ''}" onclick="switchChannel('${ch.id}')">
+            ${ch.icon} ${escapeHtml(ch.name)}
+          </div>
+        `).join('');
+      }
     }
     
     function showCreateChannel() {
