@@ -10,16 +10,13 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3001;
-const DATA_DIR = path.join(__dirname, 'data');
+const PEERS = (process.env.PEERS || '').split(',').filter(Boolean);
+const SERVER_NAME = process.env.SERVER_NAME || 'Node-' + PORT;
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-// In-memory store
+// In-memory store — NO persistence
 const channels = new Map();
 const users = new Map();
-const messages = new Map();
-
-// Default channels
+// messages stored in browser only — server just relays
 const DEFAULT_CHANNELS = [
   { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат' },
   { id: 'it', name: 'IT', icon: '💻', description: 'Программирование и технологии' },
@@ -33,7 +30,6 @@ const DEFAULT_CHANNELS = [
 
 DEFAULT_CHANNELS.forEach(ch => {
   channels.set(ch.id, { ...ch, created_at: Date.now() });
-  messages.set(ch.id, []);
 });
 
 // Serve static
@@ -46,9 +42,9 @@ app.get('/api/channels', (req, res) => {
 });
 
 app.get('/api/channels/:id/messages', (req, res) => {
-  const msgs = messages.get(req.params.id) || [];
   const limit = parseInt(req.query.limit) || 100;
-  res.json(msgs.slice(-limit));
+  // No server storage — return empty, messages live in browser
+  res.json([]);
 });
 
 app.post('/api/channels', (req, res) => {
@@ -58,7 +54,6 @@ app.post('/api/channels', (req, res) => {
   if (channels.has(id)) return res.status(409).json({ error: 'Channel exists' });
   const ch = { id, name, icon: icon || '💬', description: description || '', created_at: Date.now() };
   channels.set(id, ch);
-  messages.set(id, []);
   broadcast({ type: 'channel_created', channel: ch });
   res.json(ch);
 });
@@ -83,6 +78,17 @@ app.get('/federation/info', (req, res) => {
 
 app.get('/federation/channels', (req, res) => {
   res.json(Array.from(channels.values()));
+});
+
+// Relay messages from other servers
+app.post('/federation/relay', (req, res) => {
+  const { from, msg } = req.body;
+  if (!msg) return res.status(400).json({ error: 'No message' });
+  // Broadcast to local clients only (avoid infinite loop)
+  wss.clients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  });
+  res.json({ ok: true });
 });
 
 // WebSocket
@@ -127,9 +133,7 @@ function handleMessage(ws, userId, msg) {
       
       users.set(userId, user);
       
-      // Send recent messages
-      const channelMsgs = messages.get(channel) || [];
-      ws.send(JSON.stringify({ type: 'history', messages: channelMsgs.slice(-100) }));
+      // No server history — messages live in browser only
       
       // Broadcast join
       broadcast({ type: 'user_joined', nickname: user.nickname, channel, color: user.color });
@@ -153,16 +157,8 @@ function handleMessage(ws, userId, msg) {
         reply_to: msg.reply_to || null,
       };
       
-      // Store message
-      if (!messages.has(user.channel)) messages.set(user.channel, []);
-      messages.get(user.channel).push(chatMsg);
-      
-      // Keep last 1000 messages per channel
-      const chMsgs = messages.get(user.channel);
-      if (chMsgs.length > 1000) chMsgs.splice(0, chMsgs.length - 1000);
-      
-      // Broadcast to channel
-      broadcastToChannel(user.channel, { type: 'message', message: chatMsg });
+      // No server storage — just relay to all
+      broadcast({ type: 'message', message: chatMsg });
       break;
     }
     
@@ -177,8 +173,17 @@ function handleMessage(ws, userId, msg) {
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
+  // Send to local WebSocket clients
   wss.clients.forEach(ws => {
     if (ws.readyState === WebSocket.OPEN) ws.send(data);
+  });
+  // Send to federated servers
+  PEERS.forEach(peer => {
+    fetch(`${peer}/federation/relay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: SERVER_NAME, msg }),
+    }).catch(() => {});
   });
 }
 
