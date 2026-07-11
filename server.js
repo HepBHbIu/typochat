@@ -54,7 +54,7 @@ setInterval(() => {
 }, 60000);
 
 // Federation
-app.get('/federation/info', (req, res) => res.json({ name: 'TypeChat', version: '1.0.0', channels: channels.size, users: users.size }));
+app.get('/federation/info', (req, res) => res.json({ name: 'TypoChat', version: '1.0.0', channels: channels.size, users: users.size }));
 app.post('/federation/relay', (req, res) => {
   const { msg } = req.body;
   if (!msg) return res.status(400).json({ error: 'No message' });
@@ -203,4 +203,4 @@ setInterval(() => {
   });
 }, 30000);
 
-server.listen(PORT, () => console.log(`TypeChat running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`TypoChat running on http://localhost:${PORT}`));
