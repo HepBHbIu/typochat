@@ -8,6 +8,15 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 const PORT = process.env.PORT || 3001;
 const PEERS = (process.env.PEERS || '').split(',').filter(Boolean);
 const SERVER_NAME = process.env.SERVER_NAME || 'Node-' + PORT;
@@ -52,15 +61,6 @@ setInterval(() => {
 channels.set('general', { id: 'general', name: 'Общий', icon: '💬', description: 'Главный чат', created_at: Date.now(), last_activity: Date.now() });
 
 app.use(express.static('public'));
-
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
 
 // ===== API =====
 app.get('/api/channels', (req, res) => res.json(Array.from(channels.values())));
