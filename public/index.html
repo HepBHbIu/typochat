@@ -48,6 +48,10 @@
     .msg-t{font-size:10px;color:rgba(255,255,255,.2)}
     .msg-b{font-size:14px;line-height:1.5;word-break:break-word;color:rgba(255,255,255,.85)}
     .empty{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.15);font-size:14px}
+    .typing{padding:4px 16px;font-size:11px;color:rgba(255,255,255,.3);min-height:20px}
+    .online-bar{padding:6px 16px;font-size:11px;color:rgba(255,255,255,.3);border-top:1px solid rgba(255,255,255,.04)}
+    .online-list{margin-left:4px}
+    .online-user{font-size:11px}
 
     .input{padding:12px;border-top:1px solid rgba(255,255,255,.04);display:flex;gap:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
     .input input{flex:1;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.04);color:#fff;font-size:16px;outline:none}
@@ -109,6 +113,8 @@
           <div class="head-info"><h3 id="hName">Выбери канал</h3><p id="hDesc"></p></div>
         </div>
         <div class="msgs" id="msgs"><div class="empty" id="empty">Выбери канал слева</div></div>
+        <div class="typing" id="typing-indicator"></div>
+        <div class="online-bar">Онлайн: <span id="online-count">0</span> <span id="online-list" class="online-list"></span></div>
         <div class="input">
           <input type="text" id="inp" placeholder="Сообщение..." maxlength="2000" autocomplete="off">
           <button id="send">→</button>
@@ -168,13 +174,16 @@ function onMsg(m) {
     }
   } else if (m.type === 'message' && m.message.channel === ch) {
     appendMsg(m.message);
+    // Play sound for new messages from others
+    if (m.message.nickname !== nick) playSound();
   } else if (m.type === 'user_joined') {
     appendSys(m.nickname + ' зашёл');
   } else if (m.type === 'user_left') {
     appendSys(m.nickname + ' вышел');
+  } else if (m.type === 'typing') {
+    showTyping(m.nickname);
   } else if (m.type === 'users') {
-    const empty = document.getElementById('empty');
-    if (empty && m.users.length > 0) empty.textContent = m.users.length + ' в чате';
+    renderOnlineUsers(m.users);
   } else if (m.type === 'channel_created') {
     loadChannels();
   } else if (m.type === 'channel_deleted') {
@@ -236,10 +245,53 @@ function appendSys(t) {
   const empty = document.getElementById('empty');
   if (empty) empty.remove();
   el.innerHTML += `<div class="msg msg-sys">${esc(t)}</div>`;
+  el.scrollTop = el.scrollHeight;
 }
 
 function clearMsgs() {
   document.getElementById('msgs').innerHTML = '<div class="empty" id="empty">Начни общаться</div>';
+}
+
+let typingTimeout;
+function showTyping(nickname) {
+  const el = document.getElementById('typing-indicator');
+  if (el) {
+    el.textContent = nickname + ' печатает...';
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => { el.textContent = ''; }, 2000);
+  }
+}
+
+function renderOnlineUsers(users) {
+  const el = document.getElementById('online-count');
+  if (el) el.textContent = users.length;
+  const list = document.getElementById('online-list');
+  if (list) {
+    list.innerHTML = users.map(u => `<span class="online-user" style="color:${u.color}">${esc(u.nickname)}</span>`).join(', ');
+  }
+}
+
+function playSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    osc.type = 'sine';
+    gain.gain.value = 0.1;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc.stop(ctx.currentTime + 0.1);
+  } catch {}
+}
+
+let lastTyping = 0;
+function sendTyping() {
+  if (Date.now() - lastTyping < 2000) return;
+  lastTyping = Date.now();
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'typing' }));
 }
 
 function toggleSb() { document.getElementById('sb').classList.toggle('open'); document.getElementById('ov').classList.toggle('on'); }
@@ -255,7 +307,11 @@ function createCh() {
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
 document.getElementById('send').onclick = sendMsg;
-document.getElementById('inp').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } };
+document.getElementById('inp').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  else { sendTyping(); }
+};
+document.getElementById('inp').oninput = () => { sendTyping(); };
 </script>
 </body>
 </html>
